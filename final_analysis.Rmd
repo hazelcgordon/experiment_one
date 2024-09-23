@@ -1,0 +1,309 @@
+---
+title: "Final Experiment 1 Analysis"
+author: "Hazel C Gordon"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document lists all the models included in the final reported analysis of my main thesis (excluding the manipulation check), including supplementary materials.
+
+Only the control of 'agreement' is needed in this document, however information about key demographics such as age, gender and education was collected and the variables are processed in the 'data_wrangle.Rmd' document. 
+
+```{r libraries}
+
+library(tidyverse)
+
+```
+
+```{r read in df}
+
+#THIS ASSUMES YOU HAVE THE DATA DOWNLOADED AND SAVED INTO THE SAME R PROJECT
+
+data <- read.csv("final_responses.csv")
+
+```
+
+## Exclusions
+
+Excluded is any participant who failed both attention checks (already removed from dataset), any participant who completed the survey in less than half the median time, and one participant who was under 18 years old so did not complete the survey. This left 1,222 observations for analysis.
+
+```{r}
+
+data$Duration..in.seconds. <- as.numeric(data$Duration..in.seconds.)
+data$AGE <- as.numeric(data$AGE)
+
+data <- data %>%
+  filter(Duration..in.seconds.>270)
+
+data <- data %>%
+  filter(AGE>17)
+
+```
+
+## Variable transformations
+
+Predictors:
+
+- orient_1_1 = trust_1
+- orient_1_3 = trust_2
+- orient_2_1 = trust_3
+- orient_2_4 = trust_4
+- orient_1_4 = distrust_1
+- orient_1_5 = distrust_2
+- orient_2_3 = distrust_3
+- orient_2_5 = distrust_4
+- DATA_ACCEPT (kept the same)
+
+Outcomes:
+
+- AD_TRUST_2 = manipulative
+- AD_TRUST_1 = credible
+
+
+```{r agree disagree transformations}
+
+#every agree-disagree item on a scale of 1-7
+
+df1 <- data %>%
+  data.frame() %>%
+  select(ORIENT_1_1, ORIENT_1_3, ORIENT_2_1, ORIENT_2_4, ORIENT_1_4, ORIENT_1_5, ORIENT_2_3, ORIENT_2_5, COMP_1, COMP_2, COMP_3, COMP_4, BENEV_1, BENEV_2, BENEV_3, BENEV_4, INTEG_1, INTEG_2, INTEG_3, INTEG_4, COMP_1, COMP_2, COMP_3, COMP_4, AD_TRUST_1, AD_TRUST_2
+         )
+
+df1 <- df1 %>%
+  select(ORIENT_1_1, ORIENT_1_3, ORIENT_2_1, ORIENT_2_4, ORIENT_1_4, ORIENT_1_5, ORIENT_2_3, ORIENT_2_5, COMP_1, COMP_2, COMP_3, COMP_4, BENEV_1, BENEV_2, BENEV_3, BENEV_4, INTEG_1, INTEG_2, INTEG_3, INTEG_4, COMP_1, COMP_2, COMP_3, COMP_4, AD_TRUST_1, AD_TRUST_2) %>%
+  mutate_all(~c(1, 2, 3, 4, 5, 6, 7)[match(.x, c("Strongly disagree", 
+                                                 "Disagree", "Somewhat disagree",
+                                                 "Neither agree nor disagree",
+                                                 "Somewhat agree", "Agree",
+                                                 "Strongly agree"))])
+
+#data acceptability on a scale of 1 to 7
+
+df2 <- data %>%
+  data.frame() %>%
+  select(DATA_ACCEPT)
+
+df2 <- df2 %>%
+  select(DATA_ACCEPT) %>%
+  mutate_all(~c(1, 2, 3, 4, 5, 6, 7)[match(.x, c("Not at all acceptable", "Mostly unacceptable ", "Somewhat unacceptable", "Neither acceptable nor unacceptable", "Somewhat acceptable", "Mostly acceptable", "Completely acceptable "))])
+
+#rename to something more informative
+
+df1 <- df1 %>%
+  rename("TRUST_1" = "ORIENT_1_1",
+         "TRUST_2" = "ORIENT_1_3",
+         "TRUST_3" = "ORIENT_2_1",
+         "TRUST_4" = "ORIENT_2_4",
+         "DISTRUST_1" = "ORIENT_1_4",
+         "DISTRUST_2" = "ORIENT_1_5",
+         "DISTRUST_3" = "ORIENT_2_3",
+         "DISTRUST_4" = "ORIENT_2_5")
+
+df1 <- df1 %>%
+  rename("COMPTRUST_1" = "COMP_1",
+         "COMPTRUST_2" = "COMP_4",
+         "COMPDIS_1" = "COMP_2",
+         "COMPDIS_2" = "COMP_3",
+         "INTTRUST_1" = "INTEG_1",
+         "INTTRUST_2" = "INTEG_4",
+         "INTDIS_1" = "INTEG_2",
+         "INTDIS_2" = "INTEG_3",
+         "BENTRUST_1" = "BENEV_2",
+         "BENTRUST_2" = "BENEV_4",
+         "BENDIS_1" = "BENEV_1",
+         "BENDIS_2" = "BENEV_3",
+         "MANIPULATIVE" = "AD_TRUST_2",
+         "CREDIBLE" = "AD_TRUST_1")
+
+```
+
+```{r agreement}
+
+#agreement on scale of 1 to 5 
+
+df3 <- data %>%
+  data.frame() %>%
+  select(AGREE)
+
+df3 <- df3 %>%
+  select(AGREE) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Completely disagree", "Somewhat disagree", "Neither agree or disagree", "Somewhat agree", "Completely agree"
+))])
+
+```
+
+```{r recall}
+
+#the code below converts the memory variables into recall categories by experimental condition, creating a 4-factor level for each
+
+memory <- data %>%
+  data.frame() %>%
+  select(Condition, MEM_PAID, MEM_TAR)
+
+memory$Condition <- as.numeric(memory$Condition)
+
+memory$MEM_PAID[memory$MEM_PAID == 'Yes'] <- '1'
+memory$MEM_PAID[memory$MEM_PAID == 'No'] <- '0'
+memory$MEM_TAR[memory$MEM_TAR == 'Yes'] <- '1'
+memory$MEM_TAR[memory$MEM_TAR == 'No'] <- '0'
+
+memory$MEM_PAID <- as.numeric(memory$MEM_PAID)
+memory$MEM_TAR <- as.numeric(memory$MEM_TAR)
+
+memory$PAID_diff<-(memory$Condition-memory$MEM_PAID)
+
+memory$PAID_diff[memory$PAID_diff == '0'] <- 'correct'
+memory$PAID_diff[memory$PAID_diff == '1'] <- 'incorrect_exp'
+memory$PAID_diff[memory$PAID_diff == '-1'] <- 'incorrect_control'
+
+memory$TAR_diff<-(memory$Condition-memory$MEM_TAR)
+
+memory$TAR_diff[memory$TAR_diff == '0'] <- 'correct'
+memory$TAR_diff[memory$TAR_diff == '1'] <- 'incorrect_exp'
+memory$TAR_diff[memory$TAR_diff == '-1'] <- 'incorrect_control'
+
+#setting condition as a categorical dummy variable
+
+memory$Condition[memory$Condition == '0'] <- 'control'
+memory$Condition[memory$Condition == '1'] <- 'transparent'
+
+memory$Condition <- as.factor(memory$Condition)
+
+memory <- memory %>%
+  mutate(
+    Condition = relevel(factor(Condition, levels = 
+                                 c("control", 
+                                   "transparent"
+                                 )), ref = "control"
+    )
+  )
+
+#splitting into a 4-level factor
+
+rename_recall <- function(df, response_col, condition_col) {
+  response_col_sym <- rlang::sym(response_col)
+  condition_col_sym <- rlang::sym(condition_col)
+  
+  df <- df %>%
+    mutate(!!response_col_sym := case_when(
+      !!response_col_sym == "correct" & !!condition_col_sym == "control" ~ "correct_control",
+      !!response_col_sym == "correct" & !!condition_col_sym == "transparent" ~ "correct_exp",
+      TRUE ~ as.character(!!response_col_sym)
+    ))
+  
+  return(df)
+}
+
+memory <- rename_recall(memory, "PAID_diff", "Condition")
+memory <- rename_recall(memory, "TAR_diff", "Condition")
+
+# resetting the factor levels, making incorrect recall exp the reference
+
+memory <- memory %>%
+  mutate(PAID_diff = factor(PAID_diff, 
+                            levels = c("correct_exp", "incorrect_exp", "incorrect_control", 
+                                       "correct_control")))
+memory <- memory %>%
+  mutate(TAR_diff = factor(TAR_diff, 
+                            levels = c("correct_exp", "incorrect_exp", "incorrect_control", 
+                                       "correct_control")))
+
+```
+
+```{r}
+
+#combining the dataframes
+
+final <- cbind(df1, df2, df3, memory)
+
+```
+
+## Combined-score measures
+
+The code below averages all combined scores to form the final versions of the variables, ready for analysis.
+
+```{r}
+
+#first, create a distrust and trust orientation variable on seperate dimensions for the supplementary analysis
+
+final <- final %>%
+  rowwise() %>%
+  mutate(distrust_orient = mean(c(DISTRUST_1, DISTRUST_2, DISTRUST_3, DISTRUST_4)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(trust_orient = mean(c(TRUST_1, TRUST_2, TRUST_3, TRUST_4)))
+
+#function for reverse coding
+
+reverse_code <- function(response) {
+  # Define the mapping from original to reversed scores
+  mapping <- c(1, 2, 3, 4, 5, 6, 7)
+  names(mapping) <- c(7, 6, 5, 4, 3, 2, 1)
+  
+  # Use the response as a name to look up in the mapping
+  return(as.numeric(names(mapping)[match(response, mapping)]))
+}
+
+# Apply the function to the specified columns
+final <- final %>%
+  mutate_at(vars(DISTRUST_1, DISTRUST_2, DISTRUST_3, DISTRUST_4), reverse_code)
+
+#change names to account for reversal
+
+final <- final %>%
+  mutate(DISTRUST_1rev = DISTRUST_1,
+         DISTRUST_2rev = DISTRUST_2,
+         DISTRUST_3rev = DISTRUST_3,
+         DISTRUST_4rev = DISTRUST_4)
+
+#Mean scoring political trust orientation on one dimension
+
+final <- final %>%
+  rowwise() %>%
+  mutate(pol_orientation = mean(c(TRUST_1, TRUST_2, TRUST_3, TRUST_4, DISTRUST_1rev, DISTRUST_2rev, DISTRUST_3rev, DISTRUST_4rev)))
+
+#Mean scoring competence: trust and distrust
+
+final <- final %>%
+  rowwise() %>%
+  mutate(comp_distrust = mean(c(COMPDIS_1, COMPDIS_2)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(comp_trust = mean(c(COMPTRUST_1, COMPTRUST_2)))
+
+#Mean scoring integrity
+
+final <- final %>%
+  rowwise() %>%
+  mutate(int_distrust = mean(c(INTDIS_1, INTDIS_2)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(int_trust = mean(c(INTTRUST_1, INTTRUST_2)))
+
+#Mean scoring benevolence 
+
+final <- final %>%
+  rowwise() %>%
+  mutate(ben_distrust = mean(c(BENDIS_1, BENDIS_2)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(ben_trust = mean(c(BENTRUST_1, BENTRUST_2)))
+
+#extracting out wanted columns
+
+final <- final %>%
+  select(Condition, pol_orientation, DATA_ACCEPT, AGREE, PAID_diff, TAR_diff, MANIPULATIVE, CREDIBLE, comp_trust, comp_distrust, int_trust, int_distrust, ben_trust, ben_distrust)
+
+```
+
+## Hypothesis Testing
+
+

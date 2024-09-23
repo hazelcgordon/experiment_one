@@ -1,0 +1,726 @@
+---
+title: "CogSci re-analysis"
+output: html_document
+date: "2024-04-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE}
+
+library(tidyverse)
+
+```
+
+
+```{r read in df}
+
+data <- read.csv("final_responses.csv")
+
+data$Duration..in.seconds. <- as.numeric(data$Duration..in.seconds.)
+data$AGE <- as.numeric(data$AGE)
+
+data <- data %>%
+  filter(Duration..in.seconds.>270)
+
+data <- data %>%
+  filter(AGE>17)
+
+data <- data %>% 
+  mutate(id = row_number())
+
+```
+
+## Creating the analysis data frame
+
+```{r}
+
+df1 <- data %>%
+  data.frame() %>%
+  select(COMP_1, COMP_2, COMP_3, COMP_4, BENEV_1, BENEV_2, BENEV_3, BENEV_4, INTEG_1, INTEG_2,
+         INTEG_3, INTEG_4, AD_TRUST_2, AD_TRUST_1 
+         )
+
+# AD_TRUST_2 = manipulative
+# AD_TRUST_1 = credible
+
+df1 <- df1 %>%
+  select(COMP_1, COMP_2, COMP_3, COMP_4, BENEV_1, BENEV_2, BENEV_3, BENEV_4, INTEG_1, INTEG_2,
+         INTEG_3, INTEG_4, AD_TRUST_2, AD_TRUST_1) %>%
+  mutate_all(~c(1, 2, 3, 4, 5, 6, 7)[match(.x, c("Strongly disagree", 
+                                                 "Disagree", "Somewhat disagree",
+                                                 "Neither agree nor disagree",
+                                                 "Somewhat agree", "Agree",
+                                                 "Strongly agree"))])
+
+# agreement scale
+
+df2 <- data %>%
+  data.frame() %>%
+  select(AGREE)
+
+df2 <- df2 %>%
+  select(AGREE) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Completely disagree", "Somewhat disagree", "Neither agree or disagree", "Somewhat agree", "Completely agree"
+))])
+
+df3 <- data %>%
+  data.frame() %>%
+  select(SELF_TAR)
+
+df3 <- df3 %>%
+  select(SELF_TAR) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Not at all targeted at me", "Mostly not targeted ", "Somewhat targeted", "Mostly targeted", "Completely targeted at me" 
+))])
+
+df4 <- data %>%
+  data.frame() %>%
+  select(GENDER, EDUCATION)
+
+#gender
+
+df4 <- df4 %>%
+  mutate(
+    GENDER = relevel(factor(GENDER, levels = 
+                                 c("Female", 
+                                   "Male",
+                                   "Non-binary / third gender",
+                                   "Prefer not to say"
+                                 )), ref = "Female"))
+
+#education
+
+df4 <- df4 %>%
+ mutate(
+    EDUCATION = relevel(factor(EDUCATION, levels = 
+                              c("Postgraduate (e.g., M.Sc or Ph.D)",
+                                "Undergraduate University (e.g., BA, B.Sc or B.Ed)",
+                                "A level, or equivelent", "GCSE level, or equivelent",
+                                "No formal qualifications",
+                                "Other, please specify"
+                              )), ref = "Postgraduate (e.g., M.Sc or Ph.D)"
+    )
+  )
+
+#time spent on page
+
+df5 <- data %>%
+  select(id, Q54_Page.Submit, Q56_Page.Submit)
+
+df5 <- pivot_longer(df5, cols = c(Q54_Page.Submit, Q56_Page.Submit), names_to = "response_t", values_to = "response_sec")
+
+df5 <- df5 %>%
+  mutate(across(response_sec, ~na_if(.x, "")))
+
+df5 <- df5 %>%
+  filter(!is.na(response_sec))
+
+```
+
+```{r}
+
+memory <- data %>%
+  data.frame() %>%
+  select(Condition, MEM_PAID, MEM_TAR)
+
+memory$Condition <- as.numeric(memory$Condition)
+
+memory$MEM_PAID[memory$MEM_PAID == 'Yes'] <- '1'
+memory$MEM_PAID[memory$MEM_PAID == 'No'] <- '0'
+memory$MEM_TAR[memory$MEM_TAR == 'Yes'] <- '1'
+memory$MEM_TAR[memory$MEM_TAR == 'No'] <- '0'
+
+memory$MEM_PAID <- as.numeric(memory$MEM_PAID)
+memory$MEM_TAR <- as.numeric(memory$MEM_TAR)
+
+memory$PAID_diff<-(memory$Condition-memory$MEM_PAID)
+
+memory$PAID_diff[memory$PAID_diff == '0'] <- 'correct'
+memory$PAID_diff[memory$PAID_diff == '1'] <- 'incorrect_exp'
+memory$PAID_diff[memory$PAID_diff == '-1'] <- 'incorrect_control'
+
+memory$TAR_diff<-(memory$Condition-memory$MEM_TAR)
+
+memory$TAR_diff[memory$TAR_diff == '0'] <- 'correct'
+memory$TAR_diff[memory$TAR_diff == '1'] <- 'incorrect_exp'
+memory$TAR_diff[memory$TAR_diff == '-1'] <- 'incorrect_control'
+
+#memory$PAID_diff <- as.factor(memory$PAID_diff)
+#memory$TAR_diff <- as.factor(memory$TAR_diff)
+
+#memory <- memory %>%
+#  mutate(
+#    PAID_diff = relevel(factor(PAID_diff, levels = 
+#                                 c("NON_IDENTIFY", 
+#                                  "CORRECT",
+#                                   "IDENTIFY"
+#                                 )), ref = "NON_IDENTIFY"))
+
+#memory <- memory %>%
+ # mutate(
+  #  TAR_diff = relevel(factor(TAR_diff, levels = 
+   #                              c("NON_IDENTIFY", 
+    #                               "CORRECT",
+     #                              "IDENTIFY"
+      #                           )), ref = "NON_IDENTIFY"))
+
+```
+
+
+```{r cfa on the trust distrust items}
+
+#binding the dataframe
+
+final <- cbind(df1, df2, df3, df4, df5, memory)
+
+#deleting columns
+
+final <- final %>%
+  select(-response_t, -MEM_PAID, -MEM_TAR)
+
+final <- final %>%
+  select(id, response_sec, Condition, everything())
+
+#setting condition as a categorical dummy variable
+
+final$Condition[final$Condition == '0'] <- 'control'
+final$Condition[final$Condition == '1'] <- 'transparent'
+
+final$Condition <- as.factor(final$Condition)
+
+final <- final %>%
+  mutate(
+    Condition = relevel(factor(Condition, levels = 
+                                 c("control", 
+                                   "transparent"
+                                 )), ref = "control"
+    )
+  )
+
+```
+
+```{r}
+
+final <- final %>%
+  rename("COMPTRUST_1" = "COMP_1",
+         "COMPTRUST_2" = "COMP_4",
+         "COMPDIS_1" = "COMP_2",
+         "COMPDIS_2" = "COMP_3",
+         "INTTRUST_1" = "INTEG_1",
+         "INTTRUST_2" = "INTEG_4",
+         "INTDIS_1" = "INTEG_2",
+         "INTDIS_2" = "INTEG_3",
+         "BENTRUST_1" = "BENEV_2",
+         "BENTRUST_2" = "BENEV_4",
+         "BENDIS_1" = "BENEV_1",
+         "BENDIS_2" = "BENEV_3",
+         "MANIPULATIVE" = "AD_TRUST_2",
+         "CREDIBLE" = "AD_TRUST_1")
+
+reverse_code <- function(response) {
+  # Define the mapping from original to reversed scores
+  mapping <- c(1, 2, 3, 4, 5, 6, 7)
+  names(mapping) <- c(7, 6, 5, 4, 3, 2, 1)
+  
+  # Use the response as a name to look up in the mapping
+  return(as.numeric(names(mapping)[match(response, mapping)]))
+}
+
+final <- final %>%
+  mutate(COMPDIS_1rev = COMPDIS_1,
+         COMPDIS_2rev = COMPDIS_2,
+         INTDIS_1rev = INTDIS_1,
+         INTDIS_2rev = INTDIS_2,
+         BENDIS_1rev = BENDIS_1,
+         BENDIS_2rev = BENDIS_2)
+
+final <- final %>%
+  mutate(across(.cols = which(grepl("DIS", names(.)) & grepl("rev", names(.))),
+    .fns = reverse_code))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(competence = mean(c(COMPTRUST_1, COMPTRUST_2, COMPDIS_1rev, COMPDIS_2rev)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(integrity = mean(c(INTTRUST_1, INTTRUST_2, INTDIS_1rev, INTDIS_2rev)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(benevolence = mean(c(BENTRUST_1, BENTRUST_2, BENDIS_1rev, BENDIS_2rev)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(trustw_total = mean(c(competence, integrity, benevolence)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(trustw_pos = mean(c(COMPTRUST_1, COMPTRUST_2, INTTRUST_1, INTTRUST_2, BENTRUST_1, BENTRUST_2)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(trustw_neg = mean(c(COMPDIS_1, COMPDIS_2, INTDIS_1, INTDIS_2, BENDIS_1, BENDIS_2)))
+
+final$response_sec <- as.numeric(final$response_sec)
+
+```
+
+## Analysis
+
+Cronbach's alpha of scale
+
+```{r}
+
+library(psych)
+
+cronbach_tw <- final[, c("COMPTRUST_1", "COMPTRUST_2", "INTTRUST_1", "INTTRUST_2", "BENTRUST_1", "BENTRUST_2")]
+
+alpha_tw <- alpha(cronbach_tw)
+
+cronbach_dis <- final[, c("COMPDIS_1", "COMPDIS_2", "INTDIS_1", "INTDIS_2", "BENDIS_1", "BENDIS_2")]
+
+alpha_dis <- alpha(cronbach_dis)
+
+alpha_tw
+alpha_dis
+
+```
+
+
+Univariate distrubutions for outcome variables:
+
+```{r}
+
+# descriptive statistics
+
+summary_table_median <- final %>%
+  group_by(Condition) %>%
+  summarise(
+    Median_M = median(MANIPULATIVE, na.rm = TRUE),
+    Min_M = min(MANIPULATIVE, na.rm = TRUE),
+    Max_M = max(MANIPULATIVE, na.rm = TRUE),
+    IQR_M = IQR(MANIPULATIVE, na.rm = TRUE),
+    Median_T = median(trustw_pos, na.rm = TRUE),
+    Min_T = min(trustw_pos, na.rm = TRUE),
+    Max_T = max(trustw_pos, na.rm = TRUE),
+    IQR_T = IQR(trustw_pos, na.rm = TRUE)
+  )
+
+summary_table_man <- final %>%
+  group_by(Condition) %>%
+  summarise(
+    Mean_M = mean(MANIPULATIVE, na.rm = TRUE),
+    Min_M = min(MANIPULATIVE, na.rm = TRUE),
+    Max_M = max(MANIPULATIVE, na.rm = TRUE),
+    SD_M = sd(MANIPULATIVE, na.rm = TRUE)
+  )
+
+summary_table_trust <- final %>%
+  group_by(Condition) %>%
+  summarise(
+    Mean_M = mean(trustw_pos, na.rm = TRUE),
+    Min_M = min(trustw_pos, na.rm = TRUE),
+    Max_M = max(trustw_pos, na.rm = TRUE),
+    SD_M = sd(trustw_pos, na.rm = TRUE)
+  )
+
+summary_table_distrust <- final %>%
+  group_by(Condition) %>%
+  summarise(
+    Mean_M = mean(trustw_neg, na.rm = TRUE),
+    Min_M = min(trustw_neg, na.rm = TRUE),
+    Max_M = max(trustw_neg, na.rm = TRUE),
+    SD_M = sd(trustw_neg, na.rm = TRUE)
+  )
+
+
+
+library(knitr)
+
+knitr::kable(summary_table_distrust, caption = "Summary Statistics of Manipulativeness and Trustworthiness by Experimental Condition")
+
+#checking agree for outliers
+
+histogram_agree <- ggplot(final, aes(x = AGREE)) +
+  geom_histogram(binwidth = 1, fill = "cornflowerblue", color = "black") +  # Adjust binwidth as needed
+  labs(title = "Histogram of AGREE", x = "AGREE", y = "Frequency") +
+  theme_minimal()
+
+boxplot_agree <- ggplot(final, aes(x = "", y = AGREE)) +  # x is set to a constant to create a single boxplot
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplot of AGREE Distribution", x = "", y = "AGREE") +
+  theme_minimal()
+
+print(boxplot_agree)
+
+z_scores <- scale(final$trustw_total)  # scale() computes the z-score
+outliers_z <- which(abs(z_scores) > 3)  # Identify where the absolute z-score is greater than 3
+final[outliers_z, ]  # Display outliers
+
+```
+
+Hypothesis 1: did the experimental condition impact trust?
+
+To test the effect of the experimental condition on the outcomes, a robust linear regression analysis was conducted using the rlm function from the R package MASS (ref). This method was chosen to address the challenges posed by the skewed distribution of both the agreement covariate and the outcome measures, consisting of outliers that could undermine the reliability of model predictions. Accordingly, key OLS regression assumptions were not met in many of the models regarding the normality and equal variance of the residuals. To enhance the reliability of the estimates, a Huber-weight M-estimator was used to weight the error terms (for a full review on the appropriateness of this method, see Menezes et al., 2021). 
+
+```{r}
+
+library(MASS)
+library(sjPlot)
+
+trust_cond <- lm(trustw_pos ~ Condition + AGREE, data=final)
+untrust_cond <- lm(trustw_neg ~ Condition + AGREE, data=final)
+man_cond <- lm(MANIPULATIVE ~ Condition + AGREE, data=final)
+cred_cond <- lm(CREDIBLE ~ Condition + AGREE, data = final)
+
+tab_model(trust_cond)
+tab_model(untrust_cond)
+tab_model(man_cond)
+tab_model(cred_cond)
+
+tab_model(trust_cond, file = "tables/trustworthy_main_condition.html")
+tab_model(untrust_cond, file = "tables/untrustworthy_main_condition.html")
+tab_model(man_cond, file = "tables/manipulative_main_condition.html")
+tab_model(cred_cond, file = "tables/credible_main_condition.html")
+
+summary(trust_cond)
+summary(untrust_cond)
+summary(man_cond)
+
+#scale of residuals
+
+mad_resid <- mad(trust_cond$residuals)
+print(mad_resid)
+
+summary(trust_cond)
+tab_model(man_cond)
+
+# AIC and BIC
+
+AIC_robust <- AIC(trust_cond)
+AIC_ols <- AIC(trust_cond_OLS)
+BIC_robust <- BIC(trust_cond)
+print(AIC_ols)
+print(BIC_robust)
+
+#calculating a pseudo r-squared
+
+coef_est <- summary(trust_cond)$coefficients[2,1]  # Coefficient estimate for x
+coef_se <- summary(trust_cond)$coefficients[2,2]  # Standard error for x
+t_value <- coef_est / coef_se  # T-value
+
+# Pseudo F-statistic (for single predictor model)
+pseudo_f <- t_value^2
+
+# Print pseudo F-statistic
+print(pseudo_f)
+
+```
+
+```{r}
+
+# regression analysis with agreement as a covariate
+
+recall_pos_s <- lm(trustw_pos ~ PAID_diff + AGREE, data=final)
+recall_neg_s <- lm(trustw_neg ~ PAID_diff + AGREE, data=final)
+recall_man_s <- lm(MANIPULATIVE ~ PAID_diff + AGREE, data=final)
+
+
+summary(recall_pos_s)
+summary(recall_neg_s)
+summary(recall_man_s)
+
+tab_model(recall_pos_s)
+tab_model(recall_neg)
+tab_model(recall_man)
+
+
+agree_paid <- lm(AGREE ~ PAID_diff, data = final)
+agree_targ <- lm(AGREE ~ TAR_diff, data = final)
+
+robust_paid <- rlm(AGREE ~ PAID_diff, data = final)
+robust_targ <- rlm(AGREE ~ TAR_diff, data = final)
+
+summary(robust_paid)
+
+tab_model(robust_paid)
+
+#assumptions
+
+plot(robust_paid, which = 5)
+
+
+tab_model(robust_targ)
+
+summary(robust_targ)
+
+AIC_robust <- AIC(agree_paid)
+AIC_ols <- AIC(trust_cond_OLS)
+BIC_robust <- BIC(agree_paid)
+print(BIC_robust)
+
+```
+
+Hypothesis 2: Did recall of the digital imprint impact trust?
+
+- Agreement and recall
+
+One reviewer noted that those who paid more attention to the content may have agreed with it more, thus being more motivated to enagage with the content, explaining the higher recall. This is checked by testing if there are significantly different levels of agreement between those who correctly recalled in the ex condition, and those who did not correctly recall. No support for a sig difference is found.
+
+- Time spent on page and recall
+
+There is evidence that those who recalled the information correctly spent more time viewing the advertisements. This could suggest that those who took more time to view the ads may have taken more time to form an opinion about the political party, and were more engaged with the task. However, there was no association between agreement and time spent on the page. However, it is noted this was a 5 second mean increase in mean difference.
+
+```{r recall}
+
+#splitting into a 4-level factor
+
+rename_recall <- function(df, response_col, condition_col) {
+  response_col_sym <- rlang::sym(response_col)
+  condition_col_sym <- rlang::sym(condition_col)
+  
+  df <- df %>%
+    mutate(!!response_col_sym := case_when(
+      !!response_col_sym == "correct" & !!condition_col_sym == "control" ~ "correct_control",
+      !!response_col_sym == "correct" & !!condition_col_sym == "transparent" ~ "correct_exp",
+      TRUE ~ as.character(!!response_col_sym)
+    ))
+  
+  return(df)
+}
+
+final <- rename_recall(final, "PAID_diff", "Condition")
+final <- rename_recall(final, "TAR_diff", "Condition")
+
+# resetting the factor levels, making incorrect recall exp the reference
+
+final <- final %>%
+  mutate(PAID_diff = factor(PAID_diff, 
+                            levels = c("correct_exp", "incorrect_exp", "incorrect_control", 
+                                       "correct_control")))
+final <- final %>%
+  mutate(TAR_diff = factor(TAR_diff, 
+                            levels = c("correct_exp", "incorrect_exp", "incorrect_control", 
+                                       "correct_control")))
+
+
+```
+
+```{r}
+
+# checking for differences in agreement and time spent for recall
+
+df_recall <- final %>%
+  subset(Condition == "transparent")
+
+df_recall$PAID_diff <- as.factor(df_recall$PAID_diff)
+df_recall$TAR_diff <- as.factor(df_recall$TAR_diff)
+df_recall$Condition <- droplevels(df_recall$Condition)
+
+# boxplot of paid_diff and agreement
+
+ggplot(df_recall, aes(x = PAID_diff, y = AGREE, fill = PAID_diff)) +
+  geom_boxplot(alpha = 0.5) +  # Setting alpha to make boxplot slightly transparent
+  geom_jitter(width = 0.2, alpha = 0.5, color = "black") +  # Add jittered points
+  labs(title = "Agreement Levels by PAID_diff", x = "PAID_diff", y = "Agreement") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Pastel1")
+
+# ordinal regression for paid_diff and agreement
+
+df_recall$AGREE <- factor(df_recall$AGREE, ordered = TRUE)
+df_recall$PAID_diff <- factor (df_recall$PAID_diff, ordered = TRUE)
+df_recall$TAR_diff <- factor (df_recall$TAR_diff, ordered = TRUE)
+
+# checking between those who recalled and those who did not
+
+recall_agree_check <- polr(AGREE ~ PAID_diff, data = df_recall, Hess = TRUE)
+
+summary(recall_agree_check)
+
+tab_model(recall_agree_check)
+
+# checking difference between time spent on page in seconds
+
+df_recall$response_sec <- as.numeric(df_recall$response_sec)
+
+ggplot(df_recall, aes(x = PAID_diff, y = response_sec, fill = PAID_diff)) +
+  geom_boxplot(alpha = 0.5, width = 0.5) +  # Setting alpha to make boxplot slightly transparent
+  geom_jitter(width = 0.2, alpha = 0.5, color = "black") +  # Add jittered points
+  labs(title = "Time spent by PAID_diff", x = "PAID_diff", y = "Engagment (sec)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Pastel1")
+
+time_spent_check <- lm(data=df_recall, response_sec ~ PAID_diff + AGREE)
+
+tab_model(time_spent_check)
+
+```
+
+## Simple recall models
+
+```{r}
+
+# experimental condition models
+
+cond_pos <- lm(trustw_pos ~ Condition + AGREE, data=final)
+cond_neg <- lm(trustw_neg ~ Condition + AGREE, data=final)
+cond_man <- lm(MANIPULATIVE ~ Condition + AGREE, data=final)
+
+# make plot
+
+dark_colors <- c("trustworthiness" = "#006400", "untrustworthiness" = "sienna3", "manipulation" = "#00008B")
+
+condition_effect <- plot_summs(cond_pos, cond_neg, cond_man, 
+                        model.names = c("trustworthiness", "untrustworthiness", "manipulation"), 
+                        coefs = c("Disclosure viewed\n with advertisements" = 
+                                    "Conditiontransparent",
+                                  "Agreement with campaign" = "AGREE"),
+                        exp = TRUE, omit.coefs = 
+                          c("(Intercept)"),
+                        colors = dark_colors) +
+  labs(x = "Exponentiated Coefficient") +
+  theme(axis.title = element_text(size = 18),   # Axis title size
+        axis.text = element_text(size = 18), 
+        axis.text.y = element_text(size = 18),
+        legend.title = element_text(size = 20), # Legend title size
+        legend.text = element_text(size = 20))
+
+ggsave("figures/cogsci_condition.png", plot = condition_effect, width = 16, height = 8, units = "in", dpi = 300)
+
+
+#sponsorship recall models
+
+recall_pos_s <- lm(trustw_pos ~ PAID_diff + AGREE, data=final)
+recall_neg_s <- lm(trustw_neg ~ PAID_diff + AGREE, data=final)
+recall_man_s <- lm(MANIPULATIVE ~ PAID_diff + AGREE, data=final)
+
+summary(recall_pos_s)
+
+#make plot
+  
+magnitude <- plot_summs(recall_pos_s, recall_neg_s, recall_man_s, 
+                        model.names = c("trustworthiness", "untrustworthiness", "manipulation"), 
+                        coefs = c("Disclosure viewed:\n incorrectly not recalled" = "PAID_diffincorrect_exp",
+                                  "Disclosure not viewed:\n correctly not recalled" = "PAID_diffincorrect_control",
+                                  "Disclosure not viewed:\n incorrectly recalled" = "PAID_diffcorrect_control",
+                                  "Agreement with campaign" = "AGREE"),
+                        exp = TRUE, omit.coefs = 
+                          c("(Intercept)"),
+                        colors = dark_colors) +
+  labs(x = "Exponentiated Coefficient") +
+  theme(axis.title = element_text(size = 18),   # Axis title size
+        axis.text = element_text(size = 18), 
+        axis.text.y = element_text(size = 18),
+        legend.title = element_text(size = 20), # Legend title size
+        legend.text = element_text(size = 20))
+
+# save plot
+
+ggsave("figures/cogsci_recall2.png", plot = magnitude, width = 16, height = 12, units = "in", dpi = 300)
+
+#other models
+
+
+recall_cred_s <- lm(CREDIBLE ~ PAID_diff + AGREE, data = final)
+
+tab_model(recall_pos_s, file = "tables/trustworthy_sponsor_recall.html")
+tab_model(recall_neg_s, file = "tables/untrustworthy_sponsor_recall.html")
+tab_model(recall_man_s, file = "tables/manipulative_sponsor_recall.html")
+tab_model(recall_cred_s, file = "tables/credible_sponsor_recall.html")
+
+recall_pos_t <- lm(trustw_pos ~ TAR_diff + AGREE, data=final)
+recall_neg_t <- lm(trustw_neg ~ TAR_diff + AGREE, data=final)
+recall_man_t <- lm(MANIPULATIVE ~ TAR_diff + AGREE, data=final)
+recall_cred_t <- lm(CREDIBLE ~ TAR_diff + AGREE, data = final)
+
+tab_model(recall_pos_t, file = "tables/trustworthy_target_recall.html")
+tab_model(recall_neg_t, file = "tables/untrustworthy_target_recall.html")
+tab_model(recall_man_t, file = "tables/manipulative_target_recall.html")
+tab_model(recall_cred_t, file = "tables/credible_target_recall.html")
+
+```
+
+```{r post hoc comparisons}
+
+library(multcomp)
+
+pairwise_comp_1 <- glht(robust1, linfct = mcp(PAID_diff_1 = "Tukey"))
+
+summary(pairwise_comp_1, test = adjusted("bonferroni"))
+
+confint(pairwise_comp_1, test = adjusted("bonferroni"))
+
+# model 2
+
+pairwise_comp_2 <- glht(robust2, linfct = mcp(PAID_diff_1 = "Tukey"))
+
+summary(pairwise_comp_2, test = adjusted("bonferroni"))
+
+```
+
+```{r}
+
+# manipulative and PAID_diff
+
+#linearity of residuals
+plot(robust1, which = 1)
+
+# equal variance of residuals
+plot(robust1$fitted.values, residuals(robust1), xlab = "Fitted Values", ylab = "Residuals")
+abline(h = 0, col = "red")
+
+# cookes distance
+
+plot(robust1, which = 5)
+
+# outliers
+par(mfrow = c(2, 2))
+plot(robust1)
+
+
+```
+
+```{r plotting recall}
+
+# Representative values for other predictors
+mean_agree <- mean(final$AGREE, na.rm = TRUE)
+mean_response_sec <- mean(final$response_sec, na.rm = TRUE)
+gender_mode <- names(sort(table(final$GENDER), decreasing = TRUE))[1]
+
+new_data <- expand.grid(
+  PAID_diff_1 = levels(final$PAID_diff_1),
+  AGREE = mean_agree,
+  GENDER = gender_mode,
+  response_sec = mean_response_sec
+)
+
+# Ensure 'PAID_diff' is a factor with correct levels if not automatically handled by `expand.grid`
+new_data$PAID_diff_1 <- factor(new_data$PAID_diff_1, levels = levels(final$PAID_diff_1))
+
+predictions <- predict(robust1, newdata = new_data)
+
+ggplot(new_data, aes(x = PAID_diff_1, y = predictions)) +
+  geom_point() +
+  geom_line(aes(group = 1)) + # Adding a line to connect the points
+  labs(title = "Predicted TRUSTWORTHINESS by PAID_diff", x = "PAID_diff", y = "Predicted TRUST") +
+  theme_minimal() 
+
+```
+
+
+Is trust a predictor of recall?
+
+This supports that the more the content was trusted, the more the campaigners were assumed to be transparent.
+
+```{r}
+
+trust_recall <- glm(PAID_diff ~ MANIPULATIVE + AGREE, data = final, family = binomial())
+
+tab_model(trust_recall)
+
+```
+

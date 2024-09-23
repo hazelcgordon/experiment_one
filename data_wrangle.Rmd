@@ -1,0 +1,612 @@
+---
+title: "Data wrangling for experiment 1: backfire effects"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Preparing the data-frame to demo the code
+
+Note: I developed this code before learning the magic of loops and functions, so the following code is not at all efficient however should create the following data-frames: final and df_recall, which are used in the analysis.
+
+Please also note that the variable 'REG_TRUST_1' 8 participants selected 'don't know' options which were changed to '4' to keep all the datapoints in the variable when used as a numerical scale. All models including this variable need to be checked with and without these 8 responses.
+
+```{r read in df}
+
+#THIS ASSUMES YOU HAVE THE DATA DOWNLOADED AND SAVED INTO THE SAME PROJECT
+
+data <- read.csv("final_responses.csv")
+
+```
+
+```{r libraries}
+
+library(tidyverse)
+
+```
+
+## Exclusions
+
+```{r}
+
+data$Duration..in.seconds. <- as.numeric(data$Duration..in.seconds.)
+data$AGE <- as.numeric(data$AGE)
+
+data <- data %>%
+  filter(Duration..in.seconds.>270)
+
+data <- data %>%
+  filter(AGE>17)
+
+```
+
+## Creating the final dataframe
+
+```{r agree disagree transformations}
+
+#every agree-disagree item on a scale of 1-7
+
+df1 <- data %>%
+  data.frame() %>%
+  select(ORIENT_1_1, ORIENT_1_2, ORIENT_1_3, ORIENT_1_4, ORIENT_1_5,
+         ORIENT_2_1, ORIENT_2_2, ORIENT_2_3, ORIENT_2_4, ORIENT_2_5, MISTRUST_EX_1, MISTRUST_EX_2, MISTRUST_EX_3, MISTRUST_EX_5, MISTRUST_EX_6, COMP_1, COMP_2, COMP_3, COMP_4, BENEV_1, BENEV_2, BENEV_3, BENEV_4, INTEG_1, INTEG_2, INTEG_3, INTEG_4, AD_TRUST_1, AD_TRUST_2, AD_TRUST_4, AD_TRUST_5, SM_TRUST_1, SM_TRUST_2
+         )
+
+df1 <- df1 %>%
+  select(ORIENT_1_1, ORIENT_1_2, ORIENT_1_3, ORIENT_1_4, ORIENT_1_5,
+         ORIENT_2_1, ORIENT_2_2, ORIENT_2_3, ORIENT_2_4, ORIENT_2_5, MISTRUST_EX_1, MISTRUST_EX_2, MISTRUST_EX_3, MISTRUST_EX_5, MISTRUST_EX_6, COMP_1, COMP_2, COMP_3, COMP_4, BENEV_1, BENEV_2, BENEV_3, BENEV_4, INTEG_1, INTEG_2, INTEG_3, INTEG_4, AD_TRUST_1, AD_TRUST_2, AD_TRUST_4, AD_TRUST_5, SM_TRUST_1, SM_TRUST_2) %>%
+  mutate_all(~c(1, 2, 3, 4, 5, 6, 7)[match(.x, c("Strongly disagree", 
+                                                 "Disagree", "Somewhat disagree",
+                                                 "Neither agree nor disagree",
+                                                 "Somewhat agree", "Agree",
+                                                 "Strongly agree"))])
+```
+
+
+```{r data acceptability likeability agreement}
+
+#data acceptability on a scale of 1 to 7
+
+df2 <- data %>%
+  data.frame() %>%
+  select(DATA_ACCEPT)
+
+df2 <- df2 %>%
+  select(DATA_ACCEPT) %>%
+  mutate_all(~c(1, 2, 3, 4, 5, 6, 7)[match(.x, c("Not at all acceptable", "Mostly unacceptable ", "Somewhat unacceptable", "Neither acceptable nor unacceptable", "Somewhat acceptable", "Mostly acceptable", "Completely acceptable "))])
+
+#likability and agreement on scale of 1 to 5 
+
+df3 <- data %>%
+  data.frame() %>%
+  select(LIKE)
+
+df3 <- df3 %>%
+  select(LIKE) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Dislike a great deal", "Dislike somewhat","Neither like nor dislike", "Like somewhat", "Like a great deal"
+))])
+
+df4 <- data %>%
+  data.frame() %>%
+  select(AGREE)
+
+df4 <- df4 %>%
+  select(AGREE) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Completely disagree", "Somewhat disagree", "Neither agree or disagree", "Somewhat agree", "Completely agree"
+))])
+
+```
+
+```{r self-target social media use}
+
+#self-target and social media usage on a scale of 1-5
+
+df5 <- data %>%
+  data.frame() %>%
+  select(SELF_TAR)
+
+df5 <- df5 %>%
+  select(SELF_TAR) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Not at all targeted at me", "Mostly not targeted ", "Somewhat targeted", "Mostly targeted", "Completely targeted at me" 
+))])
+
+df6 <- data %>%
+  data.frame() %>%
+  select(SM_USE_1, SM_USE_2)
+
+df6 <- df6 %>%
+  select(SM_USE_1, SM_USE_2) %>%
+  mutate_all(~c(1, 2, 3, 4, 5)[match(.x, c("Never", "Rarely", "slightly often",  "fairly often", "very often"
+))])
+
+```
+
+```{r political interest electoral participation}
+
+#political interest (1-4), electoral participation (yes/no)
+
+df7 <- data %>%
+  data.frame() %>%
+  select(POL_INT)
+
+df7 <- df7 %>%
+  select(POL_INT) %>%
+  mutate_all(~c(1, 2, 3, 4)[match(.x, c("Not at all interested", "Mostly uninterested", "Somewhat interested", "Very interested"
+))])
+
+df8 <- data %>%
+  data.frame() %>%
+  select(ELECT_PAR_1, ELECT_PAR_2, ELECT_PAR_3, ELECT_PAR_4, ELECT_PAR_5, ELECT_PAR_6)
+
+df8 <- df8 %>%
+  select(ELECT_PAR_1, ELECT_PAR_2, ELECT_PAR_3, ELECT_PAR_4, ELECT_PAR_5, ELECT_PAR_6) %>%
+  mutate_all(~c(0, 1)[match(.x, c("No, I have not", "Yes, I have"
+))])
+
+```
+
+```{r political ideology}
+
+#Political ideology categorical with 8 categories (reduced to 4 for LR)
+
+df9 <- data %>%
+  data.frame() %>%
+  select(PERC_ID, LEFT_RIGHT)
+
+df9 <- df9 %>%
+  select(PERC_ID, LEFT_RIGHT) %>%
+  mutate_all(~c(-3, -2, -1, 0, 1, 2, 3)[match(.x, c("Strongly left leaning", "Fairly left leaning", "Slightly left leaning", "Neither left nor right leaning", "Slightly right leaning", "Somewhat right leaning", "Fairly right leaning", "Strongly right leaning"
+))])
+
+df9 <- df9 %>% 
+  replace_na(list(PERC_ID = 99))
+
+df9 <- df9 %>% 
+  replace_na(list(LEFT_RIGHT = 99))
+
+#categorical in 4 categories
+
+df10 <- df9 %>%
+  data.frame() %>%
+  select(PERC_ID, LEFT_RIGHT)
+
+##rename
+
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Strongly left leaning'] <- '1'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Fairly left leaning'] <- '2'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Slightly left leaning'] <- '3'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Neither left nor right leaning'] <- '4'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Slightly right leaning'] <- '5'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Fairly right leaning'] <- '6'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 'Strongly right leaning'] <- '7'
+
+df10$PERC_ID[df10$PERC_ID == -3] <- 'Left leaning'
+df10$PERC_ID[df10$PERC_ID == -2] <- 'Left leaning'
+df10$PERC_ID[df10$PERC_ID == -1] <- 'Left leaning'
+df10$PERC_ID[df10$PERC_ID == 0] <- 'Neither left nor right leaning'
+df10$PERC_ID[df10$PERC_ID == 1] <- 'Right leaning'
+df10$PERC_ID[df10$PERC_ID == 2] <- 'Right leaning'
+df10$PERC_ID[df10$PERC_ID == 3] <- 'Right leaning'
+df10$PERC_ID[df10$PERC_ID == 99] <- 'Not sure'
+
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == -3] <- 'Left leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == -2] <- 'Left leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == -1] <- 'Left leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 0] <- 'Neither left nor right leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 1] <- 'Right leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 2] <- 'Right leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 3] <- 'Right leaning'
+df10$LEFT_RIGHT[df10$LEFT_RIGHT == 99] <- 'Not sure'
+
+names(df10)[1] <- 'CAT_PERC_ID'
+names(df10)[2] <- 'CAT_LEFT_RIGHT'
+
+##need to also be as factor and reference group set
+
+df10$CAT_PERC_ID <- as.factor(df10$CAT_PERC_ID)
+df10$CAT_LEFT_RIGHT <- as.factor(df10$CAT_LEFT_RIGHT)
+
+df10 <- df10 %>%
+  mutate(
+    CAT_PERC_ID = relevel(factor(CAT_PERC_ID, levels = 
+                                 c("Left leaning", "Right leaning", 
+                                   "Neither left nor right leaning", "Not sure"
+                                 )), ref = "Neither left nor right leaning"
+    )
+  )
+
+df10 <- df10 %>%
+  mutate(
+    CAT_LEFT_RIGHT = relevel(factor(CAT_LEFT_RIGHT, levels = 
+                                 c("Left leaning", "Right leaning", 
+                                   "Neither left nor right leaning", "Not sure"
+                                 )), ref = "Neither left nor right leaning"
+    )
+  )
+
+```
+
+```{r creating dummy variables}
+
+#creating dummy variables for categorical variables
+
+df11 <- data %>%
+  data.frame() %>%
+  select(GENDER, EDUCATION)
+
+#gender
+
+df11 <- df11 %>%
+  mutate(
+    GENDER = relevel(factor(GENDER, levels = 
+                                 c("Female", 
+                                   "Male",
+                                   "Non-binary / third gender",
+                                   "Prefer not to say"
+                                 )), ref = "Female"))
+
+#education
+
+df11 <- df11 %>%
+ mutate(
+    EDUCATION = relevel(factor(EDUCATION, levels = 
+                              c("Postgraduate (e.g., M.Sc or Ph.D)",
+                                "Undergraduate University (e.g., BA, B.Sc or B.Ed)",
+                                "A level, or equivelent", "GCSE level, or equivelent",
+                                "No formal qualifications",
+                                "Other, please specify"
+                              )), ref = "Postgraduate (e.g., M.Sc or Ph.D)"
+    )
+  )
+
+```
+
+```{r regulation trust}
+
+#For this variable there is 1 missing piece of data, and 8 participants selected 'don't know' as their response. These 8 responses are changed to 99 in the data frame
+
+df12 <- data %>%
+  select(REG_TRUST_1)
+
+
+df12 <- df12 %>%
+  mutate(REG_TRUST_1 = c(1, 2, 3, 4, 5, 6, 7, 99, 99)[
+    match(REG_TRUST_1, c("Strongly disagree", "Disagree", "Somewhat disagree",
+                      "Neither agree nor disagree", "Somewhat agree", "Agree",
+                      "Strongly agree", "", "Don't know"))
+    ])
+
+```
+
+```{r recall variables}
+
+#getting yes-no into correct, incorrect identify, incorrect non-identify
+
+memory <- data %>%
+  data.frame() %>%
+  select(Condition, MEM_PAID, MEM_TAR)
+
+memory$Condition <- as.numeric(memory$Condition)
+
+memory$MEM_PAID[memory$MEM_PAID == 'Yes'] <- '1'
+memory$MEM_PAID[memory$MEM_PAID == 'No'] <- '0'
+memory$MEM_TAR[memory$MEM_TAR == 'Yes'] <- '1'
+memory$MEM_TAR[memory$MEM_TAR == 'No'] <- '0'
+
+memory$MEM_PAID <- as.numeric(memory$MEM_PAID)
+memory$MEM_TAR <- as.numeric(memory$MEM_TAR)
+
+memory$PAID_diff<-(memory$Condition-memory$MEM_PAID)
+
+memory$PAID_diff[memory$PAID_diff == '0'] <- 'CORRECT'
+memory$PAID_diff[memory$PAID_diff == '1'] <- 'NON_IDENTIFY'
+memory$PAID_diff[memory$PAID_diff == '-1'] <- 'IDENTIFY'
+
+memory$TAR_diff<-(memory$Condition-memory$MEM_TAR)
+
+memory$TAR_diff[memory$TAR_diff == '0'] <- 'CORRECT'
+memory$TAR_diff[memory$TAR_diff == '1'] <- 'NON_IDENTIFY'
+memory$TAR_diff[memory$TAR_diff == '-1'] <- 'IDENTIFY'
+
+memory$PAID_diff <- as.factor(memory$PAID_diff)
+memory$TAR_diff <- as.factor(memory$TAR_diff)
+
+memory <- memory %>%
+  mutate(
+    PAID_diff = relevel(factor(PAID_diff, levels = 
+                                 c("NON_IDENTIFY", 
+                                   "CORRECT",
+                                   "IDENTIFY"
+                                 )), ref = "NON_IDENTIFY"))
+
+memory <- memory %>%
+  mutate(
+    TAR_diff = relevel(factor(TAR_diff, levels = 
+                                 c("NON_IDENTIFY", 
+                                   "CORRECT",
+                                   "IDENTIFY"
+                                 )), ref = "NON_IDENTIFY"))
+
+```
+
+
+```{r combining the final dataframe}
+
+#binding the dataframe
+
+final <- cbind(df1, df2, df3, df4, df5, df6, df7, df8, df9, df10, df11, df12, memory)
+
+#setting condition as a categorical dummy variable
+
+final$Condition[final$Condition == '0'] <- 'control'
+final$Condition[final$Condition == '1'] <- 'transparent'
+
+final$Condition <- as.factor(final$Condition)
+
+final <- final %>%
+  mutate(
+    Condition = relevel(factor(Condition, levels = 
+                                 c("control", 
+                                   "transparent"
+                                 )), ref = "control"
+    )
+  )
+
+```
+
+## Renaming trust variables
+
+```{r}
+
+names(final)[1] <- 'TRUST_1' #orient_1_1
+names(final)[2] <- 'MISTRUST_1'
+names(final)[3] <- 'TRUST_2' #orient_1_3
+names(final)[4] <- 'DISTRUST_1' #orient_1_4
+names(final)[5] <- 'DISTRUST_2' #orient_1_5
+names(final)[6] <- 'TRUST_3' #orient_2_1
+names(final)[7] <- 'MISTRUST_2'
+names(final)[8] <- 'DISTRUST_3' #orient_2_3
+names(final)[9] <- 'TRUST_4' #orient_2_4
+names(final)[10] <- 'DISTRUST_4' #orient_2_5
+names(final)[12] <- 'MISTRUST_B_1'
+names(final)[13] <- 'MISTRUST_B_2'
+names(final)[15] <- 'MISTRUST_B_3'
+
+names(final)[16] <- 'COMPTRUST_1'
+names(final)[17] <- 'COMPDIS_1'
+names(final)[18] <- 'COMPDIS_2'
+names(final)[19] <- 'COMPTRUST_2'
+names(final)[20] <- 'BENDIS_1'
+names(final)[21] <- 'BENTRUST_1'
+names(final)[22] <- 'BENDIS_2'
+names(final)[23] <- 'BENTRUST_2'
+names(final)[24] <- 'INTTRUST_1'
+names(final)[25] <- 'INTDIS_1'
+names(final)[26] <- 'INTDIS_2'
+names(final)[27] <- 'INTTRUST_2'
+
+names(final)[28] <- 'CREDIBLE'
+names(final)[29] <- 'MANIPULATIVE'
+
+```
+
+## Mean-centering and adding in age
+
+```{r}
+
+df12 <- data %>%
+  data.frame() %>%
+  select(AGE)
+
+df12 <- df12 %>%
+  mutate(C_AGE = AGE)
+
+final <- cbind(final, df12)
+
+final$C_AGE <- final$C_AGE - mean(final$C_AGE)
+
+```
+
+## Reverse scoring distrust items
+
+The code below is a function to reverse score all distrust items.
+In other versions of analysis, distrust will form it's own dimension and scale and will not need to be reverse scored. For this reason, new variables are created for each item so both directions can be kept separate.
+
+```{r reverse scoring distrust items}
+
+reverse_code <- function(response) {
+  # Define the mapping from original to reversed scores
+  mapping <- c(1, 2, 3, 4, 5, 6, 7)
+  names(mapping) <- c(7, 6, 5, 4, 3, 2, 1)
+  
+  # Use the response as a name to look up in the mapping
+  return(as.numeric(names(mapping)[match(response, mapping)]))
+}
+
+#create new columns to keep the distrust dimension separate
+
+final <- final %>%
+  mutate(DISTRUST_1rev = DISTRUST_1,
+         DISTRUST_2rev = DISTRUST_2,
+         DISTRUST_3rev = DISTRUST_3,
+         DISTRUST_4rev = DISTRUST_4,
+         COMPDIS_1rev = COMPDIS_1,
+         COMPDIS_2rev = COMPDIS_2,
+         INTDIS_1rev = INTDIS_1,
+         INTDIS_2rev = INTDIS_2,
+         BENDIS_1rev = BENDIS_1,
+         BENDIS_2rev = BENDIS_2)
+
+
+final <- final %>%
+  mutate(across(.cols = which(grepl("DIS", names(.)) & grepl("rev", names(.))),
+    .fns = reverse_code))
+
+```
+
+## Mean scored items with trust and distrust on the same scale
+
+```{r}
+
+final <- final %>%
+  rowwise() %>%
+  mutate(trust_orientation = mean(c(TRUST_1, TRUST_2, TRUST_3, TRUST_4, DISTRUST_1rev, DISTRUST_2rev, DISTRUST_3rev, DISTRUST_4rev)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(competence = mean(c(COMPTRUST_1, COMPTRUST_2, COMPDIS_1rev, COMPDIS_2rev)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(integrity = mean(c(INTTRUST_1, INTTRUST_2, INTDIS_1rev, INTDIS_2rev)))
+
+final <- final %>%
+  rowwise() %>%
+  mutate(benevolence = mean(c(BENTRUST_1, BENTRUST_2, BENDIS_1rev, BENDIS_2rev)))
+
+#transparency items mean scored
+
+final <- final %>%
+  rowwise() %>%
+  mutate(TRANSPARENT = mean(c(AD_TRUST_4, AD_TRUST_5)))
+
+#social media trust mean scored
+
+final <- final %>%
+  rowwise() %>%
+  mutate(SMtrust = mean(c(SM_TRUST_1, SM_TRUST_2)))
+
+#total trustworthiness mean scored
+
+final <- final %>%
+  rowwise() %>%
+  mutate(trustw_total = mean(c(competence, integrity, benevolence)))
+
+```
+
+
+## Make variables to go in model on a scale of -3 to +3
+
+```{R changing scale of variables}
+
+#subtract_four <- function(df, cols) {
+#  df %>%
+#    mutate(across(all_of(cols), ~ . - 4))
+#}
+
+#final <- subtract_four(final, c("CREDIBLE", "MANIPULATIVE", "trust_orientation", "competence", "integrity", "benevolence", "trustw_total"))
+
+```
+
+## Extra dataframe for regulation questions
+
+For regulation trust, there are 8 NA values of people who said 'don't know'. As there are so few, these are now changed to a value '4' to retain all other observations in the final analysis. However, models need to be checked with and without these 8 observations to ensure the inclusion/exclusion of these don't know options do not impact the model estimates.
+
+```{r}
+
+#Create a dataframe with the don't know values kept at 99 for exclusion
+
+regulation_ex <- final %>%
+  select(everything())
+  
+#alter the existing dataframe so 99 becomes 4
+
+final <- final %>%
+  mutate(REG_TRUST_1 = ifelse(REG_TRUST_1 == 99, 4, REG_TRUST_1))
+
+```
+
+## Clean up the environment
+
+```{r remove unecessary df from environment}
+
+
+
+```
+
+## Create recall data frame 
+
+```{r recall dataframe}
+
+df_recall <- final %>%
+  data.frame() %>%
+  select(Condition, C_AGE, GENDER, EDUCATION, AGREE, CAT_LEFT_RIGHT, PAID_diff, TAR_diff, MANIPULATIVE, DATA_ACCEPT, SMtrust, REG_TRUST_1, trust_orientation, competence, integrity, benevolence, trustw_total, CREDIBLE)
+
+df_recall <- df_recall %>%
+  subset(Condition == "transparent")
+
+df_recall$Condition <- droplevels(df_recall$Condition)
+df_recall$PAID_diff <- droplevels(df_recall$PAID_diff)
+df_recall$TAR_diff <- droplevels(df_recall$TAR_diff)
+
+```
+
+## Bivariate graphs
+
+```{r}
+
+plot <- ggplot(df_recall, aes(x = PAID_diff, y = MANIPULATIVE)) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2) +
+  ylim(-3, 3)
+
+
+plot <- ggplot(df_recall, aes(x = PAID_diff, y = MANIPULATIVE, group = 1)) + # Add 'group = 1' to ensure a single group for line
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "blue") +
+  stat_summary(fun.y = mean, geom = "point", size = 3, color = "red") + # Add points for means
+  stat_summary(fun.y = mean, geom = "line", aes(group = 1), color = "green")  # Draw a line connecting means
+  
+
+plot <- ggplot(df_recall, aes(x = PAID_diff, y = MANIPULATIVE, group = 1)) +
+  geom_jitter(size = 0.8, color = "black", width = 0.2, height = 0.2, alpha = 0.2) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black") + 
+  stat_summary(fun.y = mean, geom = "point", size = 1, color = "sienna2") +
+  stat_summary(fun.y = mean, geom = "line", aes(group = 1), color = "sienna2") +
+  ylim(-3, 3) +
+  labs( 
+       x = "", 
+       y = "Manipulativeness score") +
+  theme_minimal() + 
+  theme(text = element_text(size = 10)) +
+  scale_x_discrete(labels = c("NON_IDENTIFY" = "Did not remember", "CORRECT" = "Correctly remembered"))
+
+plot2 <- ggplot(df_recall, aes(x = PAID_diff, y = CREDIBLE, group = 1)) +
+  geom_jitter(size = 0.8, color = "black", width = 0.2, height = 0.2, alpha = 0.2) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black") + 
+  stat_summary(fun.y = mean, geom = "point", size = 1, color = "sienna2") +
+  stat_summary(fun.y = mean, geom = "line", aes(group = 1), color = "sienna2") +
+  ylim(-3, 3) +
+  labs( 
+       x = "", 
+       y = "Credibility score") +
+  theme_minimal() + 
+  theme(text = element_text(size = 10)) +
+  scale_x_discrete(labels = c("NON_IDENTIFY" = "Did not remember", "CORRECT" = "Correctly remembered")) 
+
+plot3 <- ggplot(df_recall, aes(x = PAID_diff, y = trustw_total, group = 1)) +
+  geom_jitter(size = 0.8, color = "black", width = 0.2, height = 0.2, alpha = 0.2) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2, color = "black") + 
+  stat_summary(fun.y = mean, geom = "point", size = 1, color = "sienna2") +
+  stat_summary(fun.y = mean, geom = "line", aes(group = 1), color = "sienna2") +
+  ylim(-3, 3) +
+  labs( 
+       x = "", 
+       y = "Trustworthiness score") +
+  theme_minimal() + 
+  theme(text = element_text(size = 10)) +
+  scale_x_discrete(labels = c("NON_IDENTIFY" = "Did not remember", "CORRECT" = "Correctly remembered")) 
+
+plot 
+
+plot2
+
+plot3
+
+```
+
+
+
+
+
+
